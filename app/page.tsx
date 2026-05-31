@@ -31,9 +31,9 @@ export default function Home() {
 
   return (
     <PageContainer>
-      <SurfaceCard className="flex w-full max-w-sm flex-col items-center gap-8 p-8">
+      <SurfaceCard className="flex w-full max-w-sm flex-col items-center gap-8 p-5 sm:p-8">
         <div className="flex flex-col items-center gap-3">
-          <h1 className="text-7xl font-black tracking-tight">XO</h1>
+          <h1 className="text-6xl sm:text-7xl font-black tracking-tight">XO</h1>
           <p className="text-sm text-text-secondary">
             Tic Tac Toe with friends
           </p>

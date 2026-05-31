@@ -31,53 +31,42 @@ export default function WaitingPage() {
   }
 
   useEffect(() => {
-    const cancelled = false
+    apiFetch(`/api/room/${roomId}/join`, { method: 'POST' }).catch(() => {})
 
-    async function joinAndPoll() {
+    const interval = setInterval(async () => {
       try {
-        await apiFetch(`/api/room/${roomId}/join`, { method: 'POST' })
-      } catch {
-        // join may fail if room is full or other transient issue
-      }
-
-      const interval = setInterval(async () => {
-        if (cancelled) return
-        try {
-          const res = await apiFetch(`/api/room/${roomId}`)
-          if (!res.ok) {
-            if (res.status === 404) {
-              setError('Room not found')
-              clearInterval(interval)
-            }
-            return
-          }
-          const room: RoomState = await res.json()
-
-          if (room.players.X.deviceId === deviceId) {
-            setMyRole('X')
-          } else if (room.players.O.deviceId === deviceId) {
-            setMyRole('O')
-          }
-
-          if (room.status === 'playing') {
+        const res = await apiFetch(`/api/room/${roomId}`)
+        if (!res.ok) {
+          if (res.status === 404) {
+            setError('Room not found')
             clearInterval(interval)
-            router.push(`/room/${roomId}`)
           }
-        } catch {
-          // retry on next interval
+          return
         }
-      }, 2000)
+        const room: RoomState = await res.json()
 
-      return () => clearInterval(interval)
-    }
+        if (room.players.X.deviceId === deviceId) {
+          setMyRole('X')
+        } else if (room.players.O.deviceId === deviceId) {
+          setMyRole('O')
+        }
 
-    joinAndPoll()
+        if (room.status === 'playing') {
+          clearInterval(interval)
+          router.push(`/room/${roomId}`)
+        }
+      } catch {
+        // retry on next interval
+      }
+    }, 2000)
+
+    return () => clearInterval(interval)
   }, [roomId, router, deviceId])
 
   if (error) {
     return (
       <PageContainer>
-        <SurfaceCard className="flex w-full max-w-sm flex-col items-center gap-6 p-8">
+        <SurfaceCard className="flex w-full max-w-sm flex-col items-center gap-6 p-5 sm:p-8">
           <div className="flex flex-col items-center gap-2">
             <h1 className="text-xl font-semibold">{error}</h1>
             <p className="text-sm text-text-secondary">This room may have expired</p>
@@ -92,14 +81,14 @@ export default function WaitingPage() {
 
   return (
     <PageContainer>
-      <SurfaceCard className="flex w-full max-w-sm flex-col items-center gap-8 p-8">
+      <SurfaceCard className="flex w-full max-w-sm flex-col items-center gap-8 p-5 sm:p-8">
         <div className="flex flex-col items-center gap-2">
           <h1 className="text-xl font-semibold">Waiting for opponent</h1>
           <p className="text-sm text-text-secondary">Share this code or link</p>
         </div>
 
-        <div className="w-full border-2 border-dashed border-border rounded-card p-8 text-center">
-          <p className="text-5xl font-mono font-bold tracking-[0.15em] text-text-primary">
+        <div className="w-full border-2 border-dashed border-border rounded-card p-5 sm:p-8 text-center">
+          <p className="text-4xl sm:text-5xl font-mono font-bold tracking-[0.15em] text-text-primary">
             {roomId}
           </p>
         </div>

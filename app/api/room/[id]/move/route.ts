@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getRoom, setRoom } from '@/lib/roomStore'
+import { updateRoom, RoomActionError } from '@/lib/roomStore'
 import { checkWin, checkDraw } from '@/lib/gameLogic'
 
 export async function POST(
@@ -26,59 +26,51 @@ export async function POST(
       )
     }
 
-    const room = await getRoom(id)
-    if (!room) {
-      return NextResponse.json({ error: 'Room not found' }, { status: 404 })
-    }
+    const room = await updateRoom(id, (room) => {
+      if (room.status !== 'playing') {
+        throw new RoomActionError('Game is not in progress')
+      }
 
-    if (room.status !== 'playing') {
-      return NextResponse.json({ error: 'Game is not in progress' }, { status: 400 })
-    }
+      const playerRole =
+        room.players.X.deviceId === deviceId
+          ? 'X'
+          : room.players.O.deviceId === deviceId
+            ? 'O'
+            : null
+      if (!playerRole) {
+        throw new RoomActionError('You are not a player in this room', 403)
+      }
 
-    const playerRole =
-      room.players.X.deviceId === deviceId
-        ? 'X'
-        : room.players.O.deviceId === deviceId
-          ? 'O'
-          : null
-    if (!playerRole) {
-      return NextResponse.json(
-        { error: 'You are not a player in this room' },
-        { status: 403 },
-      )
-    }
+      if (playerRole !== room.currentTurn) {
+        throw new RoomActionError('Not your turn')
+      }
 
-    if (playerRole !== room.currentTurn) {
-      return NextResponse.json({ error: 'Not your turn' }, { status: 400 })
-    }
+      if (room.board[cellIndex] !== null) {
+        throw new RoomActionError('Cell already taken')
+      }
 
-    if (room.board[cellIndex] !== null) {
-      return NextResponse.json({ error: 'Cell already taken' }, { status: 400 })
-    }
+      room.board[cellIndex] = playerRole
 
-    room.board[cellIndex] = playerRole
-    room.version++
+      const winner = checkWin(room.board)
+      if (winner) {
+        room.winner = winner
+        room.status = 'finished'
+        room.scores[winner as 'X' | 'O']++
+      } else if (checkDraw(room.board)) {
+        room.winner = 'draw'
+        room.status = 'finished'
+      } else {
+        room.currentTurn = room.currentTurn === 'X' ? 'O' : 'X'
+      }
 
-    const winner = checkWin(room.board)
-    if (winner) {
-      room.winner = winner
-      room.status = 'finished'
-      room.scores[winner as 'X' | 'O']++
-      await setRoom(id, room)
-      return NextResponse.json(room)
-    }
+      return room
+    })
 
-    if (checkDraw(room.board)) {
-      room.winner = 'draw'
-      room.status = 'finished'
-      await setRoom(id, room)
-      return NextResponse.json(room)
-    }
-
-    room.currentTurn = room.currentTurn === 'X' ? 'O' : 'X'
-    await setRoom(id, room)
     return NextResponse.json(room)
-  } catch {
+  } catch (e) {
+    if (e instanceof RoomActionError) {
+      return NextResponse.json({ error: e.message }, { status: e.statusCode })
+    }
     return NextResponse.json({ error: 'Failed to make move' }, { status: 500 })
   }
 }

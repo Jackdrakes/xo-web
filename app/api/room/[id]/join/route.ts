@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getRoom, setRoom } from '@/lib/roomStore'
-import type { RoomState } from '@/lib/types'
+import { updateRoom, RoomActionError } from '@/lib/roomStore'
 
 export async function POST(
   request: NextRequest,
@@ -16,42 +15,36 @@ export async function POST(
       )
     }
 
-    const room = await getRoom(id)
-    if (!room) {
-      return NextResponse.json({ error: 'Room not found' }, { status: 404 })
-    }
+    const room = await updateRoom(id, (room) => {
+      if (room.status === 'playing' || room.status === 'finished') {
+        throw new RoomActionError('Room is already started')
+      }
 
-    if (room.status === 'playing' || room.status === 'finished') {
-      return NextResponse.json({ error: 'Room is already started' }, { status: 400 })
-    }
+      const x = room.players.X
+      const o = room.players.O
 
-    const x = room.players.X
-    const o = room.players.O
+      if (x.deviceId === deviceId && x.joined) return room
+      if (o.deviceId === deviceId && o.joined) return room
 
-    if (x.deviceId === deviceId && x.joined) {
-      return NextResponse.json(room)
-    }
-    if (o.deviceId === deviceId && o.joined) {
-      return NextResponse.json(room)
-    }
+      if (!x.joined) {
+        room.players.X = { deviceId, joined: true }
+        return room
+      }
 
-    if (!x.joined) {
-      room.players.X = { deviceId, joined: true }
-      room.version++
-      await setRoom(id, room)
-      return NextResponse.json(room)
-    }
+      if (!o.joined) {
+        room.players.O = { deviceId, joined: true }
+        room.status = 'playing'
+        return room
+      }
 
-    if (!o.joined) {
-      room.players.O = { deviceId, joined: true }
-      room.status = 'playing'
-      room.version++
-      await setRoom(id, room)
-      return NextResponse.json(room)
-    }
+      throw new RoomActionError('Room is full')
+    })
 
-    return NextResponse.json({ error: 'Room is full' }, { status: 400 })
-  } catch {
+    return NextResponse.json(room)
+  } catch (e) {
+    if (e instanceof RoomActionError) {
+      return NextResponse.json({ error: e.message }, { status: e.statusCode })
+    }
     return NextResponse.json({ error: 'Failed to join room' }, { status: 500 })
   }
 }

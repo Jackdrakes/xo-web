@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getRoom, setRoom } from '@/lib/roomStore'
-import { createEmptyBoard, checkWin, checkDraw, swapRoles } from '@/lib/gameLogic'
+import { updateRoom, RoomActionError } from '@/lib/roomStore'
+import { createEmptyBoard, swapRoles } from '@/lib/gameLogic'
 
 export async function POST(
   request: NextRequest,
@@ -16,29 +16,30 @@ export async function POST(
       )
     }
 
-    const room = await getRoom(id)
-    if (!room) {
-      return NextResponse.json({ error: 'Room not found' }, { status: 404 })
-    }
+    const room = await updateRoom(id, (room) => {
+      if (room.players.X.deviceId !== deviceId) {
+        throw new RoomActionError('Only the host can start a rematch', 403)
+      }
 
-    if (room.players.X.deviceId !== deviceId) {
-      return NextResponse.json(
-        { error: 'Only the host can start a rematch' },
-        { status: 403 },
-      )
-    }
+      if (room.status !== 'finished') {
+        throw new RoomActionError('Game is not finished')
+      }
 
-    room.board = createEmptyBoard()
-    room.currentTurn = 'X'
-    room.winner = null
-    room.status = 'playing'
-    room.round++
-    room.players = swapRoles(room.players)
-    room.version++
+      room.board = createEmptyBoard()
+      room.currentTurn = 'X'
+      room.winner = null
+      room.status = 'playing'
+      room.round++
+      room.players = swapRoles(room.players)
 
-    await setRoom(id, room)
+      return room
+    })
+
     return NextResponse.json(room)
-  } catch {
+  } catch (e) {
+    if (e instanceof RoomActionError) {
+      return NextResponse.json({ error: e.message }, { status: e.statusCode })
+    }
     return NextResponse.json({ error: 'Failed to rematch' }, { status: 500 })
   }
 }

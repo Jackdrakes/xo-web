@@ -9,12 +9,12 @@
   --color-text-primary: #1C1B1B;
   --color-text-secondary: #8B8986;
   --color-text-muted: #B8B5B1;
-  --color-accent-x: #3B82F6;
-  --color-accent-o: #F43F5E;
+  --color-accent-x: #60A5FA;
+  --color-accent-o: #FB7185;
   --color-accent-x-soft: #EFF6FF;
   --color-accent-o-soft: #FFF1F2;
-  --color-glow-x: rgba(59, 130, 246, 0.08);
-  --color-glow-o: rgba(244, 63, 94, 0.08);
+  --color-glow-x: rgba(96, 165, 250, 0.08);
+  --color-glow-o: rgba(251, 113, 133, 0.08);
 
   --radius-card: 0.75rem;
   --radius-button: 0.625rem;

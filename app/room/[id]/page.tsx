@@ -29,40 +29,33 @@ export default function GamePage() {
     : null
 
   useEffect(() => {
-    const cancelled = false
-
-    async function poll() {
-      const interval = setInterval(async () => {
-        if (cancelled) return
-        try {
-          const res = await apiFetch(`/api/room/${roomId}`)
-          if (!res.ok) {
-            if (res.status === 404) setError('Room not found')
-            return
-          }
-          const data: RoomState = await res.json()
-
-          if (data.status === 'waiting') {
-            router.push(`/room/${roomId}/waiting`)
-            return
-          }
-
-          setRoom(data)
-          setMoveError(null)
-
-          if (data.status === 'finished') {
-            clearInterval(interval)
-            router.push(`/room/${roomId}/result`)
-          }
-        } catch {
-          // retry
+    const interval = setInterval(async () => {
+      try {
+        const res = await apiFetch(`/api/room/${roomId}`)
+        if (!res.ok) {
+          if (res.status === 404) setError('Room not found')
+          return
         }
-      }, 2000)
+        const data: RoomState = await res.json()
 
-      return () => clearInterval(interval)
-    }
+        if (data.status === 'waiting') {
+          router.push(`/room/${roomId}/waiting`)
+          return
+        }
 
-    poll()
+        setRoom(data)
+        setMoveError(null)
+
+        if (data.status === 'finished') {
+          clearInterval(interval)
+          router.push(`/room/${roomId}/result`)
+        }
+      } catch {
+        // retry
+      }
+    }, 2000)
+
+    return () => clearInterval(interval)
   }, [roomId, router])
 
   async function handleCellClick(cellIndex: number) {
@@ -90,7 +83,7 @@ export default function GamePage() {
   if (error) {
     return (
       <PageContainer>
-        <SurfaceCard className="flex w-full max-w-sm flex-col items-center gap-6 p-8">
+        <SurfaceCard className="flex w-full max-w-[580px] flex-col items-center gap-6 p-5 sm:p-8">
           <div className="flex flex-col items-center gap-2">
             <h1 className="text-xl font-semibold">{error}</h1>
             <p className="text-sm text-text-secondary">This room may have expired</p>
@@ -106,11 +99,15 @@ export default function GamePage() {
   if (!room) {
     return (
       <PageContainer>
-        <SurfaceCard className="flex w-full max-w-sm flex-col items-center gap-6 p-8">
-          <div className="grid grid-cols-3 gap-1.5 w-full aspect-square">
-            {Array.from({ length: 9 }).map((_, i) => (
-              <div key={i} className="rounded-cell bg-elevated animate-pulse" />
-            ))}
+        <SurfaceCard className="flex w-full max-w-[580px] flex-col items-center gap-6 p-5 sm:p-8">
+          <div className="w-full max-w-[500px]">
+            <div className="rounded-2xl bg-[#0D0D14] w-full aspect-square relative">
+              <div className="absolute inset-[8px] grid grid-cols-3 gap-2">
+                {Array.from({ length: 9 }).map((_, i) => (
+                  <div key={i} className="rounded-xl bg-white/[0.06] border border-white/[0.08] animate-pulse" />
+                ))}
+              </div>
+            </div>
           </div>
           <p className="text-sm text-text-secondary animate-pulse">Loading game...</p>
         </SurfaceCard>
@@ -122,7 +119,7 @@ export default function GamePage() {
 
   return (
     <PageContainer>
-      <SurfaceCard className="flex w-full max-w-[580px] flex-col items-center gap-8 p-8">
+      <SurfaceCard className="flex w-full max-w-[580px] flex-col items-center gap-6 sm:gap-8 p-5 sm:p-8">
         <ScoreBar scores={room.scores} currentTurn={room.currentTurn} round={room.round} />
 
         <StatusBadge variant={myTurn ? 'active' : 'default'}>
@@ -131,6 +128,7 @@ export default function GamePage() {
         </StatusBadge>
 
         <GameBoard
+          key={`board-${room.round}`}
           board={room.board}
           onCellClick={handleCellClick}
           disabled={!myTurn || room.status !== 'playing'}
